@@ -67,7 +67,6 @@ temp/
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-.metadata
 
 **/android/.gradle/
 **/android/local.properties
@@ -133,7 +132,7 @@ test-results/
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
+
 
 # --------------------------------------------------
 # Build artifacts
