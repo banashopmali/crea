@@ -1,0 +1,46 @@
+# CREA CODEOWNERS
+# Initial ownership baseline for repository governance.
+
+# Default repository ownership
+* @banashopmali
+
+# GitHub governance and automation
+/.github/ @banashopmali
+
+# Architecture and engineering documentation
+/docs/ @banashopmali
+
+# Repository verification and engineering scripts
+/scripts/ @banashopmali
+
+# Mobile application
+/apps/mobile/ @banashopmali
+
+# Public web application
+/apps/public-web/ @banashopmali
+
+# Administration application
+/apps/admin/ @banashopmali
+
+# Backend platform
+/backend/ @banashopmali
+
+# Shared contracts and schemas
+/packages/contracts/ @banashopmali
+
+# Shared design tokens
+/packages/design-tokens/ @banashopmali
+
+# Infrastructure
+/infrastructure/ @banashopmali
+
+# Critical financial domains
+/backend/app/Domains/Payments/ @banashopmali
+/backend/app/Domains/Ledger/ @banashopmali
+/backend/app/Domains/Payouts/ @banashopmali
+
+# Critical identity and trust domains
+/backend/app/Domains/Identity/ @banashopmali
+/backend/app/Domains/Kyc/ @banashopmali
+/backend/app/Domains/Risk/ @banashopmali
+/backend/app/Domains/Moderation/ @banashopmali
