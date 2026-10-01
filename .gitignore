@@ -1,0 +1,181 @@
+# CREA — Global Git Ignore
+
+# --------------------------------------------------
+# Secrets / Environment
+# --------------------------------------------------
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+secrets/
+credentials/
+private/
+
+# --------------------------------------------------
+# Operating systems
+# --------------------------------------------------
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --------------------------------------------------
+# IDE / Editors
+# --------------------------------------------------
+
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# --------------------------------------------------
+# Logs
+# --------------------------------------------------
+
+*.log
+logs/
+
+# --------------------------------------------------
+# Temporary files
+# --------------------------------------------------
+
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+
+# --------------------------------------------------
+# Flutter / Dart
+# --------------------------------------------------
+
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+**/android/app/*.jks
+**/android/app/*.keystore
+
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/ephemeral/
+**/ios/Runner.xcworkspace/xcuserdata/
+**/*.xcuserstate
+
+# --------------------------------------------------
+# PHP / Laravel
+# --------------------------------------------------
+
+vendor/
+composer.phar
+
+backend/storage/*.key
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/logs/*
+
+backend/bootstrap/cache/*.php
+
+# --------------------------------------------------
+# Node / Frontend tooling
+# --------------------------------------------------
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+dist/
+coverage/
+
+# --------------------------------------------------
+# Testing / Coverage
+# --------------------------------------------------
+
+.coverage
+.phpunit.result.cache
+coverage/
+test-results/
+
+# --------------------------------------------------
+# Databases / Local development
+# --------------------------------------------------
+
+*.sqlite
+*.sqlite3
+*.db
+
+# --------------------------------------------------
+# Infrastructure / Terraform
+# --------------------------------------------------
+
+.terraform/
+*.tfstate
+*.tfstate.*
+
+
+# --------------------------------------------------
+# Build artifacts
+# --------------------------------------------------
+
+*.apk
+*.aab
+*.ipa
+*.app
+*.dmg
+*.exe
+*.msi
+*.zip
+*.tar
+*.tar.gz
+
+# --------------------------------------------------
+# Third-party source archives
+# --------------------------------------------------
+
+vendor-source/
+third-party-source/
+justfans/
+justfans-source/
+licensed-source/
+
+# --------------------------------------------------
+# Sensitive / regulated data
+# --------------------------------------------------
+
+kyc-data/
+identity-documents/
+payment-data/
+production-data/
+customer-exports/
+
+# --------------------------------------------------
+# Generated / local evidence
+# --------------------------------------------------
+
+.local/
+.cache/
+artifacts/
+local-evidence/
+
+# Keep curated repository evidence under docs/evidence/

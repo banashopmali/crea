@@ -1,0 +1,325 @@
+name: CREA CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crea-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: policy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify repository governance baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "README.md"
+            "CONTRIBUTING.md"
+            "SECURITY.md"
+            ".editorconfig"
+            ".gitignore"
+            ".github/CODEOWNERS"
+            ".github/pull_request_template.md"
+            "docs/architecture/README.md"
+            "docs/adr/README.md"
+            "docs/evidence/README.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "::error file=$file::Required governance file is missing."
+              exit 1
+            fi
+          done
+
+          if [[ -f ".github/.editorconfig" ]]; then
+            echo "::error::.editorconfig must exist only at repository root."
+            exit 1
+          fi
+
+          echo "Repository governance baseline verified."
+
+  secret_scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  scope:
+    name: scope
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed repository zones
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          zero_sha="0000000000000000000000000000000000000000"
+
+          if [[ -n "${BASE_SHA:-}" ]]; then
+            files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
+          elif [[ -n "${BEFORE_SHA:-}" && "$BEFORE_SHA" != "$zero_sha" ]]; then
+            files="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")"
+          else
+            files="$(git show --pretty="" --name-only "$GITHUB_SHA")"
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$files"
+
+          {
+            echo "## CREA Scope Detection"
+            echo
+            echo "**Commit:** \`$GITHUB_SHA\`"
+            echo
+            echo "### Changed files"
+            echo
+            echo '```text'
+            printf '%s\n' "$files"
+            echo '```'
+            echo
+            echo "### Detected zones"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          zones=""
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            case "$file" in
+              apps/mobile/*)
+                zones="${zones} mobile"
+                ;;
+              apps/public-web/*)
+                zones="${zones} public-web"
+                ;;
+              apps/admin/*)
+                zones="${zones} admin"
+                ;;
+              backend/*)
+                zones="${zones} backend"
+                ;;
+              packages/contracts/*)
+                zones="${zones} contracts"
+                ;;
+              packages/design-tokens/*)
+                zones="${zones} design-tokens"
+                ;;
+              infrastructure/*)
+                zones="${zones} infrastructure"
+                ;;
+              scripts/*)
+                zones="${zones} scripts"
+                ;;
+              docs/*)
+                zones="${zones} docs"
+                ;;
+              .github/*|CONTRIBUTING.md|SECURITY.md|README.md|.editorconfig|.gitignore)
+                zones="${zones} repo-policy"
+                ;;
+              *)
+                zones="${zones} other"
+                ;;
+            esac
+          done <<< "$files"
+
+          unique_zones="$(printf '%s\n' $zones | sort -u)"
+
+          if [[ -z "$unique_zones" ]]; then
+            echo "- none" >> "$GITHUB_STEP_SUMMARY"
+          else
+            while IFS= read -r zone; do
+              [[ -n "$zone" ]] && echo "- $zone" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$unique_zones"
+          fi
+
+  docs_verify:
+    name: docs-verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify documentation baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docs=(
+            "README.md"
+            "CONTRIBUTING.md"
+            "SECURITY.md"
+            "docs/architecture/README.md"
+            "docs/adr/README.md"
+            "docs/evidence/README.md"
+          )
+
+          for file in "${docs[@]}"; do
+            if [[ ! -s "$file" ]]; then
+              echo "::error file=$file::Documentation file is missing or empty."
+              exit 1
+            fi
+
+            if ! grep -q '^# ' "$file"; then
+              echo "::error file=$file::Markdown document must contain a level-one heading."
+              exit 1
+            fi
+          done
+
+          echo "Documentation baseline verified."
+
+  repository_verify:
+    name: repository-verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify repository hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tracked_files="$(git ls-files)"
+
+          prohibited_secret_files="$(
+            printf '%s\n' "$tracked_files" |
+              grep -E '(^|/)\.env($|\.)|\.pem$|\.key$|\.p12$|\.pfx$|\.jks$|\.keystore$' |
+              grep -v -E '(^|/)\.env\.example$' || true
+          )"
+
+          if [[ -n "$prohibited_secret_files" ]]; then
+            echo "::error::Potential secret-bearing files are tracked:"
+            printf '%s\n' "$prohibited_secret_files"
+            exit 1
+          fi
+
+          prohibited_archives="$(
+            printf '%s\n' "$tracked_files" |
+              grep -E '\.(zip|tar|tar\.gz|7z|rar)$' || true
+          )"
+
+          if [[ -n "$prohibited_archives" ]]; then
+            echo "::error::Repository archives are prohibited in the baseline:"
+            printf '%s\n' "$prohibited_archives"
+            exit 1
+          fi
+
+          prohibited_paths="$(
+            printf '%s\n' "$tracked_files" |
+              grep -E '^(justfans|justfans-source|licensed-source|kyc-data|identity-documents|payment-data|production-data|customer-exports)/' || true
+          )"
+
+          if [[ -n "$prohibited_paths" ]]; then
+            echo "::error::Sensitive or licensed source paths are tracked:"
+            printf '%s\n' "$prohibited_paths"
+            exit 1
+          fi
+
+          if [[ ! -f ".editorconfig" ]]; then
+            echo "::error::.editorconfig is missing from repository root."
+            exit 1
+          fi
+
+          if [[ -f ".github/.editorconfig" ]]; then
+            echo "::error::Unexpected .github/.editorconfig found."
+            exit 1
+          fi
+
+          echo "Repository hygiene verified."
+
+  evidence:
+    name: evidence
+    runs-on: ubuntu-latest
+    if: always()
+
+    needs:
+      - policy
+      - secret_scan
+      - scope
+      - docs_verify
+      - repository_verify
+
+    steps:
+      - name: Generate CI evidence summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## CREA CI Evidence"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+            echo "| Ref | \`${{ github.ref }}\` |"
+            echo "| HEAD SHA | \`${{ github.sha }}\` |"
+            echo "| Actor | \`${{ github.actor }}\` |"
+            echo "| Event | \`${{ github.event_name }}\` |"
+            echo "| Run ID | \`${{ github.run_id }}\` |"
+            echo "| Run attempt | \`${{ github.run_attempt }}\` |"
+            echo
+            echo "### Required gate results"
+            echo
+            echo "- policy: **${{ needs.policy.result }}**"
+            echo "- secret-scan: **${{ needs.secret_scan.result }}**"
+            echo "- scope: **${{ needs.scope.result }}**"
+            echo "- docs-verify: **${{ needs.docs_verify.result }}**"
+            echo "- repository-verify: **${{ needs.repository_verify.result }}**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          failed=0
+
+          [[ "${{ needs.policy.result }}" == "success" ]] || failed=1
+          [[ "${{ needs.secret_scan.result }}" == "success" ]] || failed=1
+          [[ "${{ needs.scope.result }}" == "success" ]] || failed=1
+          [[ "${{ needs.docs_verify.result }}" == "success" ]] || failed=1
+          [[ "${{ needs.repository_verify.result }}" == "success" ]] || failed=1
+
+          if [[ "$failed" -ne 0 ]]; then
+            echo "::error::One or more required CREA CI gates failed."
+            exit 1
+          fi
+
+          echo "All CREA CI-0 gates passed."
